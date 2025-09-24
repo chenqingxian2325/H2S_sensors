@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 修改1: 优化视口设置以适应手机横屏 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Real-time H2S Monitoring with Four Sensors</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        
+        /* 修改2: 优化body样式以适应手机横屏 */
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            padding: 10px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+        
+        /* 修改3: 优化容器宽度以适应手机横屏 */
+        .container {
+            width: 100%;
+            max-width: 900px; /* 减小最大宽度以适应手机横屏 */
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        /* 顶部蓝色导航栏 */
+        .top-bar {
+            background-color: #1D4E89;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #163a66;
+            position: relative;
+        }
+        
+        /* 修改4: 添加商标图片样式 */
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .neu-logo {
+            font-weight: bold;
+            font-size: 18px;
+            color: white;
+        }
+        
+        .trademark {
+            width: 24px;
+            height: 24px;
+            background-image: url('biao.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        
+        .exit-btn {
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 5px 15px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+        }
+        
+        .exit-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .content {
+            padding: 15px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eaeaea;
+        }
+        
+        /* 修改5: 优化标题大小适应手机横屏 */
+        h1 {
+            color: #2c3e50;
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 13px;
+        }
+        
+        /* 修改6: 优化图表容器以适应手机横屏 */
+        .chart-container {
+            position: relative;
+            height: 300px; /* 减小高度以适应手机横屏 */
+            margin-bottom: 15px;
+            border: 1px solid #eaeaea;
+            border-radius: 6px;
+            background-color: #fff;
+            overflow: hidden;
+        }
+        
+        /* 修改7: 添加背景图片样式 */
+        .chart-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('background.png');
+            background-size: auto 100%; /* 高度与纵坐标相同 */
+            background-repeat: no-repeat;
+            background-position: center; /* 居中 */
+            opacity: 0.1; /* 适当透明度避免影响数据可见性 */
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        #sensorChart {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* 修改8: 优化按钮容器适应手机横屏 */
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+        
+        .control-button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 80px;
+            max-width: 120px;
+        }
+        
+        .menu-btn {
+            background-color: #F7A827;
+            color: #333;
+        }
+        
+        .select-btn {
+            background-color: #6BBDDD;
+            color: #333;
+        }
+        
+        .mood-btn {
+            background-color: #D71345;
+            color: white;
+        }
+        
+        .play-btn {
+            background-color: #27ae60;
+            color: white;
+        }
+        
+        .pause-btn {
+            background-color: #f39c12;
+            color: white;
+        }
+        
+        .reset-btn {
+            background-color: #e74c3c;
+            color: white;
+        }
+        
+        .control-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .control-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        /* 修改9: 优化实时数据显示适应手机横屏 */
+        .real-time-data {
+            display: flex;
+            justify-content: space-around;
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .sensor-data {
+            text-align: center;
+            padding: 8px 10px;
+            background-color: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            width: 22%;
+            min-width: 100px;
+        }
+        
+        .sensor-data h3 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+        
+        .value-display {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin: 0 auto;
+            background-color: #2ecc71; /* 默认绿色 */
+            transition: background-color 0.3s ease;
+        }
+        
+        .status-indicator.normal {
+            background-color: #2ecc71; /* 正常 - 绿色 */
+        }
+        
+        .status-indicator.warning {
+            background-color: #f39c12; /* 警告 - 黄色 */
+        }
+        
+        .status-indicator.alert {
+            background-color: #e67e22; /* 警报 - 橙色 */
+        }
+        
+        .status-indicator.critical {
+            background-color: #e74c3c; /* 严重 - 红色 */
+        }
+        
+        /* 修改10: 优化播放控制区域适应手机横屏 */
+        .playback-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f0f4f8;
+            border-radius: 6px;
+        }
+        
+        .progress-container {
+            width: 100%;
+            margin: 8px 0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress {
+            height: 100%;
+            background-color: #3498db;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-top: 3px;
+        }
+        
+        .sensor-labels {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .sensor-label {
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .color-box {
+            width: 14px;
+            height: 14px;
+            margin-right: 6px;
+            border-radius: 3px;
+        }
+        
+        .front-color { background-color: #D71345; }
+        .right-color { background-color: #F7A827; }
+        .left-color { background-color: #1D4E89; }
+        .back-color { background-color: #6BBDDD; }
+        
+        .menu-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .menu {
+            display: flex;
+            align-items: center;
+        }
+        
+        .menu-label {
+            margin-right: 8px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        select {
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+            font-size: 13px;
+        }
+        
+        .time-axis {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            padding: 0 15px;
+            font-size: 11px;
+            color: #7f8c8d;
+        }
+        
+        .background-control {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .background-control h3 {
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        
+        .url-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        
+        .apply-btn {
+            margin-top: 8px;
+            padding: 6px 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        
+        .apply-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .status-text {
+            text-align: center;
+            margin: 8px 0;
+            color: #7f8c8d;
+            font-style: italic;
+            font-size: 13px;
+        }
+        
+        .step-indicator {
+            text-align: center;
+            margin-top: 3px;
+            font-size: 11px;
+            color: #3498db;
+            font-weight: bold;
+        }
+        
+        /* 修改11: 媒体查询进一步优化手机横屏显示 */
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+            
+            .container {
+                border-radius: 6px;
+            }
+            
+            .top-bar {
+                padding: 8px 15px;
+            }
+            
+            .content {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 18px;
+            }
+            
+            .chart-container {
+                height: 250px;
+            }
+            
+            .sensor-data {
+                width: 48%;
+                margin-bottom: 5px;
+            }
+            
+            .real-time-data {
+                gap: 5px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .chart-container {
+                height: 200px;
+            }
+            
+            .control-button {
+                font-size: 12px;
+                padding: 6px 10px;
+            }
+            
+            .sensor-data h3 {
+                font-size: 12px;
+            }
+            
+            .value-display {
+                font-size: 16px;
+            }
+            
+            .menu-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 顶部蓝色导航栏 -->
+        <div class="top-bar">
+            <button class="exit-btn">
+                <i>⯇</i> Exit
+            </button>
+            <!-- 修改12: 添加商标图片 -->
+            <div class="logo-container">
+                <div class="neu-logo">NEU</div>
+                <div class="trademark"></div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="header">
+                <h1>Real-time H₂S Monitoring with Four Sensors</h1>
+                <div class="subtitle">Real-time Impedance of Sensor (MΩ)</div>
+            </div>
+            
+            <div class="chart-container">
+                <!-- 修改13: 添加背景图片 -->
+                <div class="chart-background"></div>
+                <canvas id="sensorChart"></canvas>
+            </div>
+            
+            <!-- 实时数据显示区域 -->
+            <div class="real-time-data">
+                <div class="sensor-data">
+                    <h3>Front Sensor</h3>
+                    <div class="value-display" id="frontValue">0.00</div>
+                    <div class="status-indicator normal" id="frontStatus"></div>
+                </div>
+                <div class="sensor-data">
+                    <h3>Right Sensor</h3>
+                    <div class="value-display" id="rightValue">0.00</div>
+                    <div class="status-indicator normal" id="rightStatus"></div>
+                </div>
+                <div class="sensor-data">
+                    <h3>Left Sensor</h3>
+                    <div class="value-display" id="leftValue">0.00</div>
+                    <div class="status-indicator normal" id="leftStatus"></div>
+                </div>
+                <div class="sensor-data">
+                    <h3>Back Sensor</h3>
+                    <div class="value-display" id="backValue">0.00</div>
+                    <div class="status-indicator normal" id="backStatus"></div>
+                </div>
+            </div>
+            
+            <!-- 原有的三个按钮 -->
+            <div class="button-container">
+                <button class="control-button menu-btn" id="menuBtn">Menu</button>
+                <button class="control-button select-btn" id="selectBtn">Select</button>
+                <button class="control-button mood-btn" id="moodBtn">Present Mood</button>
+            </div>
+            
+            <!-- 播放控制按钮行 -->
+            <div class="playback-controls">
+                <button class="control-button play-btn" id="startBtn">Start</button>
+                <button class="control-button pause-btn" id="pauseBtn" disabled>Pause</button>
+                <button class="control-button reset-btn" id="resetBtn">Reset</button>
+            </div>
+            
+            <!-- 进度条 -->
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress" id="progressBar"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progressCurrent">0</span>
+                    <span id="progressTotal">1700</span>
+                </div>
+                <div class="step-indicator" id="stepIndicator">当前步长: 10</div>
+            </div>
+            
+            <div class="status-text" id="statusText">就绪</div>
+            
+            <div class="time-axis">
+                <span>0</span>
+                <span>250</span>
+                <span>500</span>
+                <span>750</span>
+                <span>1000</span>
+                <span>1250</span>
+                <span>1500</span>
+                <span>1750</span>
+            </div>
+            
+            <div class="menu-container">
+                <div class="sensor-labels">
+                    <div class="sensor-label">
+                        <div class="color-box front-color"></div>
+                        <span>Front Sensor</span>
+                    </div>
+                    <div class="sensor-label">
+                        <div class="color-box right-color"></div>
+                        <span>Right Sensor</span>
+                    </div>
+                    <div class="sensor-label">
+                        <div class="color-box left-color"></div>
+                        <span>Left Sensor</span>
+                    </div>
+                    <div class="sensor-label">
+                        <div class="color-box back-color"></div>
+                        <span>Back Sensor</span>
+                    </div>
+                </div>
+                
+                <div class="menu">
+                    <span class="menu-label">Menu: </span>
+                    <select id="moodSelect">
+                        <option value="default">Select Present Mood</option>
+                        <option value="normal">Normal</option>
+                        <option value="alert">Alert</option>
+                        <option value="warning">Warning</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="background-control">
+                <h3>背景图片设置</h3>
+                <input type="text" class="url-input" id="bgUrl" placeholder="请输入背景图片的URL">
+                <button class="apply-btn" id="applyBg">应用背景图片</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 从光滑.py中提取的传感器数据生成逻辑
+        function generateSensorData() {
+            const dataPoints = 1700;
+            const x = Array.from({length: dataPoints}, (_, i) => i);
+            
+            // 生成传感器数据
+            const front = new Array(dataPoints).fill(0);
+            const right = new Array(dataPoints).fill(0);
+            const left = new Array(dataPoints).fill(0);
+            const back = new Array(dataPoints).fill(0);
+            
+            // 模拟数据生成过程
+            // 前传感器 (最先响应，峰值最高)
+            for (let i = 0; i <= 500; i++) {
+                front[i] = Math.max(0, 0.0004 * Math.pow(i, 1.5) + 2 * (Math.random() - 0.5));
+            }
+            for (let i = 500; i <= 700; i++) {
+                front[i] = 0.4 * (i - 500) + 15 + 2 * (Math.random() - 0.5);
+            }
+            for (let i = 700; i <= 1100; i++) {
+                front[i] = 90 + 1 * (Math.random() - 0.5);
+            }
+            
+            // 右传感器 (响应稍慢，峰值中等)
+            for (let i = 100; i <= 600; i++) {
+                right[i] = Math.max(0, 0.0002 * Math.pow(i-100, 1.5) + 1.5 * (Math.random() - 0.5));
+            }
+            for (let i = 600; i <= 800; i++) {
+                right[i] = 0.3 * (i - 600) + 12 + 2 * (Math.random() - 0.5);
+            }
+            for (let i = 800; i <= 1100; i++) {
+                right[i] = 75 + 1 * (Math.random() - 0.5);
+            }
+            
+            // 左传感器 (响应与右传感器相似但略有差异)
+            for (let i = 120; i <= 620; i++) {
+                left[i] = Math.max(0, 0.00025 * Math.pow(i-120, 1.5) + 1.5 * (Math.random() - 0.5));
+            }
+            for (let i = 620; i <= 820; i++) {
+                left[i] = 0.32 * (i - 620) + 13 + 2 * (Math.random() - 0.5);
+            }
+            for (let i = 820; i <= 1100; i++) {
+                left[i] = 77 + 1 * (Math.random() - 0.5);
+            }
+            
+            // 后传感器 (响应最慢，峰值最低)
+            for (let i = 200; i <= 700; i++) {
+                back[i] = Math.max(0, 0.0001 * Math.pow(i-200, 1.5) + 1 * (Math.random() - 0.5));
+            }
+            for (let i = 700; i <= 900; i++) {
+                back[i] = 0.25 * (i - 700) + 8 + 2 * (Math.random() - 0.5);
+            }
+            for (let i = 900; i <= 1100; i++) {
+                back[i] = 60 + 1 * (Math.random() - 0.5);
+            }
+            
+            // 所有传感器同步消散 (1100 - 1699)
+            for (let i = 1100; i < dataPoints; i++) {
+                const decayFactor = 0.8;
+                const peak = 90; // 简化处理
+                front[i] = Math.max(0, peak * Math.exp(-(i - 1100) / (300 * decayFactor)) + 1.5 * (Math.random() - 0.5));
+                right[i] = Math.max(0, 75 * Math.exp(-(i - 1100) / (300 * (decayFactor + 0.1))) + 1.5 * (Math.random() - 0.5));
+                left[i] = Math.max(0, 77 * Math.exp(-(i - 1100) / (300 * (decayFactor + 0.2))) + 1.5 * (Math.random() - 0.5));
+                back[i] = Math.max(0, 60 * Math.exp(-(i - 1100) / (300 * (decayFactor + 0.3))) + 1.5 * (Math.random() - 0.5));
+            }
+            
+            return { x, front, right, left, back };
+        }
+        
+        // 创建图表
+        function createChart() {
+            const ctx = document.getElementById('sensorChart').getContext('2d');
+            const sensorData = generateSensorData();
+            
+            // 动态计算步长：当时间点≤500时使用步长10，大于500时使用步长1
+            const calculateStep = (currentIndex) => {
+                return currentIndex <= 500 ? 10 : 1;
+            };
+            
+            // 初始步长
+            const initialStep = calculateStep(0);
+            const sampledX = sensorData.x.filter((_, i) => i % initialStep === 0);
+            const sampledFront = sensorData.front.filter((_, i) => i % initialStep === 0);
+            const sampledRight = sensorData.right.filter((_, i) => i % initialStep === 0);
+            const sampledLeft = sensorData.left.filter((_, i) => i % initialStep === 0);
+            const sampledBack = sensorData.back.filter((_, i) => i % initialStep === 0);
+            
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sampledX,
+                    datasets: [
+                        {
+                            label: 'Front Sensor',
+                            data: sampledFront,
+                            borderColor: '#D71345',
+                            backgroundColor: 'rgba(215, 19, 69, 0.1)',
+                            borderWidth: 2.5,
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Right Sensor',
+                            data: sampledRight,
+                            borderColor: '#F7A827',
+                            backgroundColor: 'rgba(247, 168, 39, 0.1)',
+                            borderWidth: 2.5,
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Left Sensor',
+                            data: sampledLeft,
+                            borderColor: '#1D4E89',
+                            backgroundColor: 'rgba(29, 78, 137, 0.1)',
+                            borderWidth: 2.5,
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Back Sensor',
+                            data: sampledBack,
+                            borderColor: '#6BBDDD',
+                            backgroundColor: 'rgba(107, 189, 221, 0.1)',
+                            borderWidth: 2.5,
+                            fill: false,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time (Data Point Index)',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Real-time Impedance of Sensor (MΩ)',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            },
+                            beginAtZero: true,
+                            max: 100 // 始终设置最大值为100
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false // 使用自定义图例
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    }
+                }
+            });
+            
+            return chart;
+        }
+        
+        // 初始化图表
+        let sensorChart = createChart();
+        
+        // 播放功能变量
+        let isPlaying = false;
+        let currentIndex = 0;
+        let playbackInterval;
+        const totalDataPoints = 1700;
+        
+        // 动态调整步长
+        function getStepSize(currentIndex) {
+            return currentIndex <= 500 ? 10 : 1;
+        }
+        
+        // 更新实时数据
+        function updateRealTimeData(index) {
+            const sensorData = generateSensorData();
+            document.getElementById('frontValue').textContent = sensorData.front[index].toFixed(2);
+            document.getElementById('rightValue').textContent = sensorData.right[index].toFixed(2);
+            document.getElementById('leftValue').textContent = sensorData.left[index].toFixed(2);
+            document.getElementById('backValue').textContent = sensorData.back[index].toFixed(2);
+            
+            // 更新状态指示器
+            updateStatusIndicators(sensorData, index);
+        }
+        
+        // 更新状态指示器
+        function updateStatusIndicators(sensorData, index) {
+            const frontValue = sensorData.front[index];
+            const rightValue = sensorData.right[index];
+            const leftValue = sensorData.left[index];
+            const backValue = sensorData.back[index];
+            
+            // 根据值设置状态
+            function getStatus(value) {
+                if (value < 20) return 'normal';
+                if (value < 50) return 'warning';
+                if (value < 80) return 'alert';
+                return 'critical';
+            }
+            
+            document.getElementById('frontStatus').className = `status-indicator ${getStatus(frontValue)}`;
+            document.getElementById('rightStatus').className = `status-indicator ${getStatus(rightValue)}`;
+            document.getElementById('leftStatus').className = `status-indicator ${getStatus(leftValue)}`;
+            document.getElementById('backStatus').className = `status-indicator ${getStatus(backValue)}`;
+        }
+        
+        // 更新进度条
+        function updateProgressBar(index) {
+            const progress = (index / totalDataPoints) * 100;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+            document.getElementById('progressCurrent').textContent = index;
+            
+            // 更新步长指示器
+            const currentStep = getStepSize(index);
+            document.getElementById('stepIndicator').textContent = `当前步长: ${currentStep}`;
+        }
+        
+        // 采样数据
+        function sampleData(data, step, maxPoints) {
+            const result = [];
+            for (let i = 0; i < data.length && i <= maxPoints; i += step) {
+                result.push(data[i]);
+            }
+            return result;
+        }
+        
+        // 开始播放
+        function startPlayback() {
+            if (isPlaying) return;
+            
+            isPlaying = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('pauseBtn').disabled = false;
+            document.getElementById('statusText').textContent = "正在播放数据...";
+            
+            playbackInterval = setInterval(() => {
+                // 动态获取当前步长
+                const currentStep = getStepSize(currentIndex);
+                currentIndex += currentStep;
+                
+                if (currentIndex >= totalDataPoints) {
+                    currentIndex = totalDataPoints - 1;
+                    pausePlayback();
+                    document.getElementById('statusText').textContent = "播放完成";
+                }
+                
+                updateRealTimeData(currentIndex);
+                updateProgressBar(currentIndex);
+                
+                // 更新图表显示当前数据点
+                const sensorData = generateSensorData();
+                
+                // 采样数据以减少绘制点数，使用动态步长
+                const sampledX = sampleData(sensorData.x, currentStep, currentIndex);
+                const sampledFront = sampleData(sensorData.front, currentStep, currentIndex);
+                const sampledRight = sampleData(sensorData.right, currentStep, currentIndex);
+                const sampledLeft = sampleData(sensorData.left, currentStep, currentIndex);
+                const sampledBack = sampleData(sensorData.back, currentStep, currentIndex);
+                
+                // 更新图表数据
+                sensorChart.data.labels = sampledX;
+                sensorChart.data.datasets[0].data = sampledFront;
+                sensorChart.data.datasets[1].data = sampledRight;
+                sensorChart.data.datasets[2].data = sampledLeft;
+                sensorChart.data.datasets[3].data = sampledBack;
+                
+                // 确保纵坐标最大值为100
+                sensorChart.options.scales.y.max = 100;
+                
+                sensorChart.update('none');
+                
+            }, 100); // 每100毫秒更新一次
+        }
+        
+        // 暂停播放
+        function pausePlayback() {
+            if (!isPlaying) return;
+            
+            isPlaying = false;
+            clearInterval(playbackInterval);
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('pauseBtn').disabled = true;
+            document.getElementById('statusText').textContent = "已暂停";
+        }
+        
+        // 重置播放
+        function resetPlayback() {
+            pausePlayback();
+            currentIndex = 0;
+            updateRealTimeData(currentIndex);
+            updateProgressBar(currentIndex);
+            document.getElementById('statusText').textContent = "已重置";
+            
+            // 重置图表
+            sensorChart.destroy();
+            sensorChart = createChart();
+        }
+        
+        // 背景图片设置
+        document.getElementById('applyBg').addEventListener('click', function() {
+            const bgUrl = document.getElementById('bgUrl').value;
+            if (bgUrl) {
+                document.body.style.backgroundImage = `url('${bgUrl}')`;
+                document.body.style.backgroundSize = 'cover';
+                document.body.style.backgroundPosition = 'center';
+                document.body.style.backgroundRepeat = 'no-repeat';
+            }
+        });
+        
+        // Menu按钮交互
+        document.getElementById('menuBtn').addEventListener('click', function() {
+            alert('Menu button clicked');
+        });
+        
+        // Select按钮交互
+        document.getElementById('selectBtn').addEventListener('click', function() {
+            alert('Select button clicked');
+        });
+        
+        // Present Mood按钮交互
+        document.getElementById('moodBtn').addEventListener('click', function() {
+            const selectedMood = document.getElementById('moodSelect').value;
+            if (selectedMood !== 'default') {
+                alert(`Present Mood: ${selectedMood}`);
+            } else {
+                alert('Please select a mood from the dropdown first');
+            }
+        });
+        
+        // Exit按钮交互
+        document.querySelector('.exit-btn').addEventListener('click', function() {
+            if (confirm('Are you sure you want to exit?')) {
+                alert('Exiting application...');
+            }
+        });
+        
+        // 播放控制按钮
+        document.getElementById('startBtn').addEventListener('click', startPlayback);
+        document.getElementById('pauseBtn').addEventListener('click', pausePlayback);
+        document.getElementById('resetBtn').addEventListener('click', resetPlayback);
+        
+        // 下拉菜单选择
+        document.getElementById('moodSelect').addEventListener('change', function() {
+            console.log('Selected mood:', this.value);
+        });
+        
+        // 初始化实时数据
+        updateRealTimeData(0);
+        updateProgressBar(0);
+    </script>
+</body>
+</html>
